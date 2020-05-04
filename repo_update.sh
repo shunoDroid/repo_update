@@ -151,10 +151,10 @@ apply_gerrit_cl_commit refs/changes/75/728575/1 d6f654b013b00fa55b5c50f3f599df50
 apply_gerrit_cl_commit refs/changes/05/728605/1 b6f563436ca1b1496bf6026453e5b805c856f9e6
 # SystemUI: Implement burn-in protection for status-bar/nav-bar items
 # Change-Id: I828dbd4029b4d3b1f2c86b682a03642e3f9aeeb9
-apply_gerrit_cl_commit refs/changes/40/824340/2 cf575e7f64a976918938e6ea3bc747011fb3b551
+# apply_gerrit_cl_commit refs/changes/40/824340/2 cf575e7f64a976918938e6ea3bc747011fb3b551
 # core/Build: ro.system when comparing fingerprint
 # Change-Id: Ie5e972047d7983b411004a3f0d67c4636a205162
-apply_gerrit_cl_commit refs/changes/96/1147496/2 88c1bf0737f1209c62a7e70a49263834d2104d47
+# apply_gerrit_cl_commit refs/changes/96/1147496/2 88c1bf0737f1209c62a7e70a49263834d2104d47
 popd
 
 pushd $ANDROOT/system/extras
@@ -169,21 +169,21 @@ LINK=$HTTP && LINK+="://android.googlesource.com/platform/system/sepolicy"
 apply_gerrit_cl_commit refs/changes/00/1185400/1 668b7bf07a69e51a6c190d6b366d574b9e4af1d4
 popd
 
-pushd $ANDROOT/packages/apps/DeskClock
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/packages/apps/DeskClock"
-# DeskClock - Moved the android:targetSdkVersion to 25 to fix "Clock has stopped"
-# message displayed when Alarm trigger.
-# Change-Id: I75a96e1ed4acebd118c212b51b7d0e57482a66bb
-apply_gerrit_cl_commit refs/changes/26/987326/1 e6351b3b85b2f5d53d43e4797d3346ce22a5fa6f
-popd
+# pushd $ANDROOT/packages/apps/DeskClock
+# LINK=$HTTP && LINK+="://android.googlesource.com/platform/packages/apps/DeskClock"
+# # DeskClock - Moved the android:targetSdkVersion to 25 to fix "Clock has stopped"
+# # message displayed when Alarm trigger.
+# # Change-Id: I75a96e1ed4acebd118c212b51b7d0e57482a66bb
+# apply_gerrit_cl_commit refs/changes/26/987326/1 e6351b3b85b2f5d53d43e4797d3346ce22a5fa6f
+# popd
 
-pushd $ANDROOT/packages/apps/Messaging
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/packages/apps/Messaging"
-# AOSP/Messaging - Update the Messaging version to 24 until notification
-# related logic changes are made.
-# Change-Id: Ic263e2c63d675c40a2cfa1ca0a8776c8e2b510b9
-apply_gerrit_cl_commit refs/changes/82/941082/1 8e71d1b707123e1b48b5529b1661d53762922400
-popd
+# pushd $ANDROOT/packages/apps/Messaging
+# LINK=$HTTP && LINK+="://android.googlesource.com/platform/packages/apps/Messaging"
+# # AOSP/Messaging - Update the Messaging version to 24 until notification
+# # related logic changes are made.
+# # Change-Id: Ic263e2c63d675c40a2cfa1ca0a8776c8e2b510b9
+# apply_gerrit_cl_commit refs/changes/82/941082/1 8e71d1b707123e1b48b5529b1661d53762922400
+# popd
 
 # because "set -e" is used above, when we get to this point, we know
 # all patches were applied successfully.
