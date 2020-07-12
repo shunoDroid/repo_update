@@ -1,32 +1,44 @@
 #!/bin/bash
 
-# exit script immediately if a command fails
-set -e
+# exit script immediately if a command fails or a variable is unset
+set -eu
 
 # Some people require insecure proxies
 HTTP=https
-if [ "$INSECURE_PROXY" = "TRUE" ]; then
+if [ "${INSECURE_PROXY:-}" = "TRUE" ]; then
     HTTP=http
 fi
 
 ANDROOT=$PWD
 
-pushd () {
+pushd() {
     command pushd "$@" > /dev/null
 }
 
-popd () {
-    command popd "$@" > /dev/null
+popd() {
+    command popd > /dev/null
+}
+
+enter_aosp_dir() {
+    [ -z "$1" ] && (echo "ERROR: enter_aosp_dir must be called with at least a path! (and optionally an alternative fetch path)"; exit 1)
+
+    [ "$ANDROOT" != "$PWD" ] && echo "WARNING: enter_aosp_dir was not called from $ANDROOT. Please fix the script to call popd after every block of patches!"
+
+    LINK="$HTTP://android.googlesource.com/platform/${2:-$1}"
+    echo "Entering $1"
+    pushd "$ANDROOT/$1"
 }
 
 apply_gerrit_cl_commit() {
-    _ref=$1
-    _commit=$2
+    local _ref=$1
+    local _commit=$2
+    local _fetched
+
     # Check whether the commit is already stored
-    if [ -z $(git rev-parse --quiet --verify $_commit^{commit}) ]
+    if [ -z "$(git rev-parse --quiet --verify "$_commit^{commit}")" ]
     # If not, fetch the ref from $LINK
     then
-        git fetch $LINK $_ref
+        git fetch "$LINK" "$_ref"
         _fetched=$(git rev-parse FETCH_HEAD)
         if [ "$_fetched" != "$_commit" ]
         then
@@ -34,43 +46,26 @@ apply_gerrit_cl_commit() {
             echo -e "\tFetched commit is not \"$_commit\""
             echo -e "\tPlease update the commit hash for $_ref to \"$_fetched\""
         fi
-        git cherry-pick FETCH_HEAD
-    else
-        git cherry-pick $_commit
+        _commit=$_fetched
     fi
+    git cherry-pick "$_commit"
 }
 
-if [ "$SKIP_SYNC" != "TRUE" ]; then
-    pushd $ANDROOT/.repo/local_manifests
+if [ "${SKIP_SYNC:-}" != "TRUE" ]; then
+    pushd "$ANDROOT/.repo/local_manifests"
     git pull
     popd
 
     repo sync -j8 --current-branch --no-tags
 fi
 
-pushd $ANDROOT/hardware/qcom/data/ipacfg-mgr/sdm845
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/hardware/qcom/sdm845/data/ipacfg-mgr"
+enter_aosp_dir vendor/qcom/opensource/data/ipacfg-mgr/sdm845 hardware/qcom/sdm845/data/ipacfg-mgr
 # guard use of kernel sources
 # Change-Id: Ie8e892c5a7cca28cc58cbead88a9796ebc80a9f8
-apply_gerrit_cl_commit refs/changes/23/834623/1 d8c88764440b0114b5f10bd9561a6b5dc4aab0e3
+apply_gerrit_cl_commit refs/changes/23/834623/2 0f42902cbc526d6d5badcece2add39d5badd1537
 popd
 
-pushd $ANDROOT/hardware/qcom/gps
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/hardware/qcom/gps"
-# gps: use TARGET_BOARD_AUTO to override qcom hals
-# Change-Id: I28898df1e8855347129039b5cb0d43975d3a5415
-apply_gerrit_cl_commit refs/changes/47/728147/2 147270f08ac33d737405afc555b3ddb6f1308336
-# Revert "FR 46082 - SUPL Network Setup Improvements"
-git revert --no-edit 35a95e0a9bc9aeab1bb1847180babda2da5fbf90
-
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/hardware/qcom/sdm845/gps"
-# gps: sdm845: gnss: use correct format specifier in log
-# Change-Id: I24ad0342d6d26f1c7fe2fcac451a71bbfba8bfe0
-apply_gerrit_cl_commit refs/changes/39/804439/1 c1bdb439aaf7ecddd9f499dce5c7b56ea458cce4
-popd
-
-pushd $ANDROOT/hardware/qcom/audio
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/hardware/qcom/audio"
+enter_aosp_dir hardware/qcom/audio
 # hal: Correct mixer control name for 3.5mm headphone
 # Change-Id: I749609aabfed53e8adb3575695c248bf9a674874
 git revert --no-edit 39a2b8a03c0a8a44940ac732f636d9cc1959eff2
@@ -100,21 +95,7 @@ apply_gerrit_cl_commit refs/changes/14/777714/1 065ec9c4857fdd092d689a0526e0caea
 apply_gerrit_cl_commit refs/changes/51/1118151/1 b7c1366360089d6cd1b4b18c70085a802a6a0544
 popd
 
-pushd $ANDROOT/hardware/qcom/media
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/hardware/qcom/media"
-# msm8998: vdec: Add missing ifdefs for UBWC on DPB buffer decision
-# Change-Id: I76131db5272b97016679c5bc0bf6ae099167cd03
-apply_gerrit_cl_commit refs/changes/39/728339/1 b641243647a7cd3f382dd2be43b74f9d6b7f9310
-# msm8998: mm-video-v4l2: enable compilation for both 3.18 kernel and 4.9 kernel
-# Change-Id: If1eb2575dd80a1e6684c84e573baf78ae698bb20
-apply_gerrit_cl_commit refs/changes/54/813054/1 01062d8acaae88b141893d69358d6c13e3495377
-# msm8998: mm-video-v4l2: Renaming the AU-Delimiter params/extens
-# Change-Id: I3feccfbb06e4e237a601a355ab2f2573a165ed3b
-apply_gerrit_cl_commit refs/changes/55/813055/1 cb97584647999d7ea8df858f2c3f4bf04f408f34
-popd
-
-pushd $ANDROOT/hardware/qcom/bootctrl
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/hardware/qcom/bootctrl"
+enter_aosp_dir hardware/qcom/bootctrl
 # Build bootctrl.sdm710 with Android.bp.
 # Change-Id: Ib29d901b44ad0ec079c3e979bfdcd467e1a18377
 apply_gerrit_cl_commit refs/changes/01/965401/1 c665a9c43f379f754b4ee25df2818b6c20c5346e
@@ -130,8 +111,7 @@ apply_gerrit_cl_commit refs/changes/96/967996/3 b229dfc102d5ea8e659514c61f6520ab
 apply_gerrit_cl_commit refs/changes/87/971787/1 7bde6868ff24001f8b6deb8cf643d86d71978b93
 popd
 
-pushd $ANDROOT/hardware/nxp/nfc
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/hardware/nxp/nfc"
+enter_aosp_dir hardware/nxp/nfc
 # hardware: nxp: Restore pn548 support to 1.1 HAL
 # Change-Id: Ifbef5a5ec0928b0a90b2fc71d84872525d0cf1a6
 apply_gerrit_cl_commit refs/changes/77/980177/3 0285b720ea752c8dcf28c35d794990e982103ada
@@ -141,44 +121,39 @@ apply_gerrit_cl_commit refs/changes/77/980177/3 0285b720ea752c8dcf28c35d794990e9
 apply_gerrit_cl_commit refs/changes/69/980169/2 a58def9e0ce610f1a349d5de31f267129a0a2397
 popd
 
-pushd $ANDROOT/frameworks/base
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/frameworks/base"
-# fwb: Add check for odm version
-# Change-Id: Ifab6ca5c2f97840bb4192226f191e624267edb32
-apply_gerrit_cl_commit refs/changes/75/728575/1 d6f654b013b00fa55b5c50f3f599df50847811bb
+enter_aosp_dir hardware/interfaces
+# [android10-dev] thermal: Init module to NULL
+# Change-Id: I250006ba6fe9d91e765dde1e4534d5d87aaab879
+apply_gerrit_cl_commit refs/changes/90/1320090/1 3861f7958bec14685cde5b8fee4e590cece76d68
+popd
+
+enter_aosp_dir frameworks/base
 # Fix bug Device that can't support adoptable storage cannot read the sdcard.
 # Change-Id: I7afe5078650fe646e79fced7456f90d4af8a449a
-apply_gerrit_cl_commit refs/changes/05/728605/1 b6f563436ca1b1496bf6026453e5b805c856f9e6
+apply_gerrit_cl_commit refs/changes/48/1295748/1 6ec651f12a9b67a9d2e41c2fe4d9a71c29d1cf34
 # SystemUI: Implement burn-in protection for status-bar/nav-bar items
 # Change-Id: I828dbd4029b4d3b1f2c86b682a03642e3f9aeeb9
 # apply_gerrit_cl_commit refs/changes/40/824340/2 cf575e7f64a976918938e6ea3bc747011fb3b551
-# core/Build: ro.system when comparing fingerprint
-# Change-Id: Ie5e972047d7983b411004a3f0d67c4636a205162
-# apply_gerrit_cl_commit refs/changes/96/1147496/2 88c1bf0737f1209c62a7e70a49263834d2104d47
 popd
 
-pushd $ANDROOT/system/extras
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/system/extras"
+enter_aosp_dir system/extras
 # verity: Do not increment data when it is nullptr.
 apply_gerrit_cl_commit refs/changes/52/1117052/1 c82514bd034f214b16d273b10c676dd63a9e603b
 popd
 
-pushd $ANDROOT/system/sepolicy
-LINK=$HTTP && LINK+="://android.googlesource.com/platform/system/sepolicy"
+enter_aosp_dir system/sepolicy
 # property_contexts: Remove compatible guard
 apply_gerrit_cl_commit refs/changes/00/1185400/1 668b7bf07a69e51a6c190d6b366d574b9e4af1d4
 popd
 
-# pushd $ANDROOT/packages/apps/DeskClock
-# LINK=$HTTP && LINK+="://android.googlesource.com/platform/packages/apps/DeskClock"
+# enter_aosp_dir packages/apps/DeskClock
 # # DeskClock - Moved the android:targetSdkVersion to 25 to fix "Clock has stopped"
 # # message displayed when Alarm trigger.
 # # Change-Id: I75a96e1ed4acebd118c212b51b7d0e57482a66bb
 # apply_gerrit_cl_commit refs/changes/26/987326/1 e6351b3b85b2f5d53d43e4797d3346ce22a5fa6f
 # popd
 
-# pushd $ANDROOT/packages/apps/Messaging
-# LINK=$HTTP && LINK+="://android.googlesource.com/platform/packages/apps/Messaging"
+# enter_aosp_dir packages/apps/Messaging
 # # AOSP/Messaging - Update the Messaging version to 24 until notification
 # # related logic changes are made.
 # # Change-Id: Ic263e2c63d675c40a2cfa1ca0a8776c8e2b510b9
@@ -189,4 +164,4 @@ popd
 # all patches were applied successfully.
 echo "+++ all patches applied successfully! +++"
 
-set +e
+set +eu
